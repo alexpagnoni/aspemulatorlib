@@ -1,0 +1,437 @@
+<?
+if ( !defined( "ASPEMULATOR_LIBRARY" ) )
+{
+define( "ASPEMULATOR_LIBRARY", true );
+//*******************************************
+//Active Server Pages Class Definition in PHP
+//*******************************************
+//require PHP4.04pl or Above
+//*******************************************
+//Application object is not supported well
+//*******************************************
+//written by hisun  2001.3
+//*******************************************
+define("_ASP_LIB_NAME","Active Server Pages Class Definition in PHP");
+define("_ASP_LIB_VERSION","v1.0.0");
+define("_ASP_LIB_AUTHOR","hisun");
+define("_ASP_LIB_AUTHOR_EMAIL","yanghisun@etang.com");
+define("_APPLICATION_FILE","application----1234567890abcdefg.app.php");
+
+ require "error.lib.php";
+
+ class clsapplication{
+         var $err;
+         var $fp,$islocked,$inneritems,$lastfefresh;//don't access it directly
+         function additem($key,$item){
+                  return false;
+         }
+         function clsapplication(&$err){
+                  $this->err=$err;
+                  $this->refreshapp();
+                  return $this;
+         }
+         function genstring($arr){
+                   $tmpstr;
+                   if(is_array($arr)){
+                      foreach($arr as $a){
+                              $tmpstr.= $this->genstring($a);
+                      }
+                   }
+                   else{
+                        $tmpstr=$arr;
+                   }
+                   return $tmpstr;
+         }
+         function ischanged(){
+                  $tmpstat=stat(_APPLICATION_FILE);
+                  clearstatcache();
+                  return (($this->lastrefreh==$tmpstat[9])&&($this->lastrefreh=$tmpstat[9])?false:true);
+         }
+         function items($key){
+                  $this->refreshapp();
+                  return $this->inneritems[$key];
+         }
+         function lock(){
+                  if(!$this->fp) $this->fp=fopen(_APPLICATION_FILE,"w");
+                  return ($this->islocked=flock($this->fp,1));
+         }
+         function refreshapp(){
+                  $this->inneritems=null;
+                  if(!file_exists(_APPLICATION_FILE)){
+                      $this->lastrefresh=0;
+                      return true;
+                  }
+                  if($this->ischanged()){
+                     $tmpfilecontent=file(_APPLICATION_FILE);
+                     for($i=0;$i<count($tmpfilecontent);$i++){
+                         switch(substr($tmpfilecontent[$i],0,7)){
+                                case "mainkey":
+                                      $tmparray=explode("=",$tmpfilecontent[$i]);
+                                      $mainkey=$tmparray[1];
+                                      break;
+                                case "sub_key":
+                                      //$tmparray=explode("=",$tmpfilecontent[$i]);
+                                      //$this->inneritems[$mainkey][$tmparray[0]]=$tmparray[1];
+                                      break;
+                                default:
+                                        $tmparray=explode("=",$tmpfilecontent[$i]);
+                                        $this->inneritems[$mainkey][$tmparray[0]]=$tmparray[1];
+                         }
+                     }
+                  }
+         }
+         function setitem($key,$value=null){
+                  if(strstr($key,"=")) return false;
+                  $this->inneritems[$key]=$value;
+                  $this->update();
+         }
+         function unlock(){
+                  return (!($this->islocked=(!flock($this->fp,4))));
+         }
+         function update(){
+                  if(!$this->islocked){$this->lock();}
+
+         }
+   }
+
+   class clsrequest{
+         var $querystring,$querystringcount;
+         var $form;
+         var $cookies;
+         var $servervariables;
+         var $files;
+         var $totalbytes;
+         var $method;
+         var $err;
+
+         function binaryread(){
+                  return null;
+         }
+         function clsrequest(&$err){
+                  global $QUERY_STRING;
+                  global $HTTP_GET_VARS;
+                  global $HTTP_POST_VARS;
+                  global $HTTP_COOKIE_VARS;
+                  global $HTTP_SERVER_VARS;
+                  global $HTTP_POST_FILES;
+                  $this->err=$err;
+                  $this->querystring=$QUERY_STRING;
+                  $this->form=(count($HTTP_GET_VARS)?$HTTP_GET_VARS:$HTTP_POST_VARS);
+                  $this->cookies=$HTTP_COOKIE_VARS;
+                  $this->servervariables=$HTTP_SERVER_VARS;
+                  $this->method=$this->servervariables("REQUEST_METHOD");
+                  $this->totalbytes=$this->servervariables("CONTENT_LENGTH");
+                  $this->files=$HTTP_POST_FILES;
+         }
+
+         function cookies($key=null){
+                  if($key){
+                     return $this->cookies[$key];
+                  }
+                  else{
+                       return $this->cookies;
+                  }
+         }
+         function file($key=null){
+                  if($key) return $this->files[$key];
+         }
+         function files(){
+                  return $this->files;
+         }
+         function form($key=null){
+                  if($key){
+                     return $this->form[$key];
+                  }
+                  else{
+                       return $this->form;
+                  }
+         }
+         function servervariables($key=null){
+                  if($key){
+                     return $this->servervariables[$key];
+                  }
+                  else{
+                       return $this->servervariables;
+                  }
+         }
+
+   }
+
+   class clsresponse{
+         var $buffer=true;
+         var $contenttype="text/html";
+         var $charset;
+         var $cookies;
+         var $expires;
+         var $isclientconnected;
+         var $outputstarted=false;
+         var $err;
+
+         function addheader($headerinfo){
+                  if(!$this->outputstarted){
+                      return header($headerinfo);
+                  }
+                  else{
+                       return false;
+                  }
+         }
+         function appendtolog($string){
+                  return error_log($string,0);
+         }
+         function charset($charsetname){
+                  $this->charset=$charsetname;
+         }
+         function clsresponse(&$err){
+                  $this->err=$err;
+                  return $this;
+         }
+         function contenttype($ContentType){
+                  if($ContentType) $this->contenttype=$ContentType;
+                  return $this->addheader("ContentType:".$this->ContentType);
+         }
+         function cookies($cknm,$ckvl){
+                  if(!$this->outputstarted) {
+                      setcookie($cknm,$ckvl);
+                      return true;
+                  }
+                  else{
+                       return false;
+                  }
+         }
+         function flush(){
+                  return flush();
+         }
+
+         function isclientconnected(){
+                  return ($this->isclientconnected=(connection_status()==0)?true:false);
+         }
+
+         function redirect($targeturl){
+                  return $this->addheader("Location:$targeturl");
+         }
+
+         function write($outstr=null){
+                  if($outstr) echo "<br>";
+                  if(is_array($outstr)){
+                     echo implode("\n",$outstr);
+                  }
+                  else{
+                       echo $outstr;
+                  }
+                  return ($this->outputstarted=true);
+         }
+   }
+
+   class clsserver{
+         var $scripttimeout=30;
+         var $err,$lasterror,$application,$request,$response,$session;
+         var $software,$name,$address,$port,$signature;
+         var $version;
+         function base64encode($string){
+                  return base64_encode($string);
+         }
+         function clsserver(&$err){
+                  $this->err=$err;
+                  //global $application;
+                  global $session;
+                  global $request;
+                  global $response;
+                  //$this->application=$application;
+                  $this->session=$session;
+                  $this->request=$request;
+                  $this->response=$response;
+                  $this->version();
+                  $this->soft=$this->request->servervariables("SERVER_SOFTWARE");
+                  $this->name=$this->request->servervariables("SERVER_HOST");
+                  $this->address=$this->request->servervariables("SERVER_ADDR");
+                  $this->port=$this->request->servervariables("SERVER_PORT");
+                  $this->signature=$this->request->servervariables("SERVER_SIGNATURE");
+                  return $this;
+         }
+
+         function createobject($progid){
+                  return new COM($progid);
+         }
+         function execute($path){
+                  return false;
+         }
+         function getlasterror(){
+                  return $this->lasterror;
+         }
+         function htmlencode($orghtmlstr){
+                  return htmlspecialchars($orghtmlstr);
+         }
+         function mappath($path){
+                  return false;
+         }
+         function md5($string){
+                  return md5($string);
+         }
+         function scripttimeout($time){
+                  return set_time_limit($this->scripttimeout=$time);
+         }
+         function transfer($path){
+                  if($paht){
+                  }
+         }
+         function urlencode($orgurl){
+                  return urlencode($orgurl);
+         }
+         function version(){
+                  return ($this->version=_ASP_LIB_NAME." "._ASP_LIB_VERSION." by "._ASP_LIB_AUTHOR);
+         }
+   }
+
+    class clssession{
+         var $codepage;
+         var $lcid;
+         var $contents;
+         var $sessionid;
+         var $err;
+
+         function abandon(){
+                  return session_destroy();
+         }
+         function contents($key,$value=null){
+                  if(!session_is_registered($$key)){
+                      session_register($$key);
+                  }
+                  global $$key;
+                  if($value) $$key=$value;
+                  return $$key;
+         }
+         function clssession(){
+                  $this->err=$err;
+                  session_start();
+                  $this->sessionid=session_id();
+                  return $this;
+         }
+         function remove($key){
+                  if($key) return session_unregister($$key);
+         }
+         function removeall(){
+                  return false;
+         }
+
+   }
+
+   class dictionary{
+         var $items;
+         var $count;
+         function additem($key,$value){
+                  $this->items[$key]=$value;
+                  $this->count();
+         }
+         function count(){
+                  return($this->count=count($this->items));
+         }
+
+         function dictionary(){
+                  $this->items=array();
+                  return $this;
+         }
+         function exists($key){
+                  return in_array($key,array_keys($this->items));
+         }
+         function items($key=""){
+                  if(!$key){
+                      return $this->items;
+                  }
+                  else{
+                       return $this->items[$key];
+                  }
+         }
+         function remove($key){
+                  unset($this->items[$key]);
+                  $this->count();
+         }
+         function removeall(){
+                  $this->items=null;
+                  $this->count=0;
+         }
+         function removeitem($key){
+                  return $this->remove($key);
+         }
+   }
+
+   $err=new clserror();
+   //$application=new clsapplication($err);
+   $session=new clssession($err);
+   $request=new clsrequest($err);
+   $response=new clsresponse($err);
+   $server=new clsserver($err);
+   //
+   //*****************************************************
+   //don't change anything above
+   //_____________________________________________________
+   //*****************************************************
+   //-----------------------------------------------------
+   //
+   //***************************
+   //useage sample
+   //***************************
+   //require "asp.lib.php";  //this must be the first line
+   //
+   //$dict =new dictionary;  //keyword "new" need here
+   //$dict->additem("key1","value1");
+   //...
+   //$response->write($dict->count);
+   //if($dict->exists("key1")) $response->write("key1 exists");
+   //$dict->remove("key1"); or $dict->removeall();
+   //
+   //
+   //$response->write($server->version());
+   //$response->write();
+   //$response->write($server->md5($server->version()));
+   //$response->write($server->base64encode($server->version()));
+   //$server->request->err->isfotalerr=true;
+   //$server->request->err->raise();
+   //
+   //$session->contents("session_name","session_value");
+   //$response->write($request->servervariables("PATH_TRANSLATED"));
+   //$conn=server->createobject("ADODB.CONNECTION");    //keyword "new" need not
+   //$conn->ConnectionString="Driver={SQL Server};Server=servername;uid=uid;passwd=password;database=database";
+   //$conn->Open();
+   //$response->write("ADO Version is V".$conn->version);
+   //$rs=server->createobject("ADODB.Recordset");
+   //$sql="SELECT * FROM tablename";
+   //$rs->Open($slq,$conn,$cursortype,$locktype);
+   //$response->write($rs->GetString("-","<br>"));
+   //$rs->close();
+   //$conn->close();
+   //$rs=null;      //like set conn=nothing in asp
+   //$conn=null;
+   //
+   //$session->abdon();
+   //    //seample end;
+   //
+
+   class clserror{
+         var $number=0;
+         var $description="";
+         var $source;
+         var $isfotalerr=false;
+         function clear(){
+                  $this->numbe=0;
+                  $this->description="";
+                  $this->source=null;
+                  $this->isfotalerr=false;
+         }
+         function clserror(){
+                  return $this;
+         }
+         function raise(){
+                  $errmsg="Error at:".$this->source."<br>";
+                  $errmsg.="Error number:".$this->number."<br>";
+                  $errmsg.="Error Description:".$this->description."<br>";
+                  if($this->isfotalerr){
+                     die("<font color=red>Fotal Error:<hr>$errmsg</font>");
+                  }
+                  else{
+                       echo "<font color=blue>Generic Error:<hr>$errmsg</font>";
+                  }
+         }
+
+   }
+}
+?>
